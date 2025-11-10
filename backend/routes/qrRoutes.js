@@ -1,7 +1,7 @@
 import express from 'express';
-import { Team } from '../models/Team.js';
-import { QRCode } from '../models/QRCode.js';
-import { Level } from '../models/Level.js';
+import { Team } from '../moduls/Team.js';
+import { QRCode } from '../moduls/QRCode.js';
+import { Level } from '../moduls/Level.js';
 
 const router = express.Router();
 

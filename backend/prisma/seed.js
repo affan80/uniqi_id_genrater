@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
@@ -99,8 +102,9 @@ async function main() {
       const cohortId = parseInt(row['cohortId']);
       const level = parseInt(row['level']);
       const flag = row['flag']?.trim();
+      const limit = parseInt(row['limit']);
 
-      if (!cohortId || !level || !flag) {
+      if (!cohortId || !level || !flag || isNaN(limit)) {
         console.log(`⚠ Skipping invalid QR row: ${JSON.stringify(row)}`);
         skipQR++;
         continue;
@@ -118,6 +122,8 @@ async function main() {
         data: {
           flag,
           level,
+          limit,
+          currentTeams: 0,  // new field, starts at 0
           cohort: {
             connect: { id: cohortId },
           },
@@ -149,7 +155,6 @@ async function main() {
   const totalTeams = await prisma.team.count();
   const totalQRCodes = await prisma.qRCode.count();
 
-  console.log(`\n📊 DB Summary → Cohorts: ${totalCohorts}, Teams: ${totalTeams}, QR Codes: ${totalQRCodes}\n`);
 }
 
 main()

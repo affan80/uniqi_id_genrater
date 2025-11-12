@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
 import qrRoutes from "./routes/qrRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js"; // 👈 added this
 
 // Load environment variables
 dotenv.config();
@@ -17,6 +18,7 @@ app.use(morgan("dev")); // HTTP request logger
 
 // Routes
 app.use("/", qrRoutes);
+app.use("/api/admin", adminRoutes); // 👈 added this line
 
 // Health Check
 app.get("/", (req, res) => {

@@ -4,31 +4,33 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      ="mysql://root:12345678@localhost:3306/hackTheHunt"
+  url      = "mysql://root:bYXnuIUlcWWkCHjSBOWtlFScaYLHilce@caboose.proxy.rlwy.net:14831/railway"
 }
 
 model Cohort {
-  id     Int     @id @default(autoincrement())
-  name   String  @unique
-  teams  Team[]
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
   qrcodes QRCode[]
+  teams   Team[]
 }
 
 model Team {
-  id           String   @id             
+  id           String @id
   name         String
-  currentLevel Int      @default(0)
+  currentLevel Int    @default(0)
   cohortId     Int
-  cohort       Cohort   @relation(fields: [cohortId], references: [id])
-}
+  cohort       Cohort @relation(fields: [cohortId], references: [id])
 
+  @@index([cohortId], map: "Team_cohortId_fkey")
+}
 
 model QRCode {
-  id        Int     @id @default(autoincrement())
-  flag     String  @unique
-  level     Int
-  cohortId  Int
-  cohort    Cohort  @relation(fields: [cohortId], references: [id])
+  id       Int    @id @default(autoincrement())
+  level    Int
+  cohortId Int
+  flag     String @unique
+  cohort   Cohort @relation(fields: [cohortId], references: [id])
+  limit    Int   @default(50) 
+  currentTeams Int   @default(0)
+  @@index([cohortId], map: "QRCode_cohortId_fkey")
 }
-
-

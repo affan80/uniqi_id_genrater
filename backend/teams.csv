@@ -1,5 +1,5 @@
 Team UID,Cohort ,Team Name,Level
-13P627,1,  Devops                                         ,0
+13P627,1,  Devops,0
 25FM161,2,11A.M Club,0
 33JK649,3,128 bits,0
 44MA708,4,405 not found ,0
@@ -27,7 +27,7 @@ Team UID,Cohort ,Team Name,Level
 15KG220,1,FlagOps,0
 24AM096,2,Hack ops ,0
 33US486,3,HackForge ,0
-45HD191,4,Hood Research Department,0
+35HD191,3,Hood Research Department,0
 55AG033,5,Hunters,0
 15S467,1,Infinite loopers,0
 24S414,2,Just a byte ,0
@@ -63,3 +63,6 @@ Team UID,Cohort ,Team Name,Level
 33LS393,3,XORriors ,0
 45P336,4,xYz,0
 54MD269,5,zeroDay Hunter,0
+54P329,5,UNO,0
+15MY281,1,CompileHer,0
+25SS430,2,Black Falcon,0

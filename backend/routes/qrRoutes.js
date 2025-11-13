@@ -65,6 +65,7 @@ router.post('/scan/:cohort/:level', async (req, res) => {
     res.json({
       message: `🎉 Level ${qr.level} completed successfully for Cohort ${team.cohort.name}!`,
       currentLevel: qr.level,
+      flag: qr.flag,
     });
 
   } catch (err) {

@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      ="mysql://root:12345678@localhost:3306/hackTheHunt"
+  url      = env("DATABASE_URL")
 }
 
 model Cohort {

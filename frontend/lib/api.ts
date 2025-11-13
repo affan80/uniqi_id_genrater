@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { prisma } from './db'
 
 const API_BASE_URL = 'http://localhost:4001'
 
@@ -90,6 +91,46 @@ export const getCohortTeams = async (cohortId: number): Promise<CohortTeamsData>
     throw {
       error: 'Network Error',
       details: 'Unable to connect to the server'
+    }
+  }
+}
+
+export const getCohortLeaderboard = async (cohortId: number): Promise<CohortTeamsData> => {
+  try {
+    const cohort = await prisma.cohort.findUnique({
+      where: { id: cohortId },
+      include: {
+        teams: {
+          select: {
+            id: true,
+            name: true,
+            currentLevel: true,
+          },
+          orderBy: {
+            currentLevel: 'desc',
+          },
+        },
+      },
+    })
+
+    if (!cohort) {
+      throw { error: 'Cohort not found' }
+    }
+
+    return {
+      cohort: {
+        id: cohort.id,
+        name: cohort.name,
+      },
+      teams: cohort.teams,
+    }
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response?.data) {
+      throw error.response.data
+    }
+    throw {
+      error: 'Database Error',
+      details: 'Unable to fetch leaderboard data'
     }
   }
 }

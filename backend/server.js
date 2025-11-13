@@ -1,43 +1,32 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
+// server.js
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import morgan from "morgan";
+import qrRoutes from "./routes/qrRoutes.js";
+
+// Load environment variables
+dotenv.config();
+
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// Middleware
+app.use(cors()); // Enable CORS for frontend requests
+app.use(express.json()); // Parse incoming JSON
+app.use(morgan("dev")); // HTTP request logger
 
-let entries = [];
+// Routes
+app.use("/", qrRoutes);
 
+// Health Check
 app.get("/", (req, res) => {
-  res.send("");
+  res.status(200).json({ message: "✅ Server is running successfully" });
 });
 
-app.post("/api/entries", (req, res) => {
-  const { id, name } = req.body;
-  if (!id || !name) {
-    return res.status(400).json({ error: "ID and name are required" });
-  }
-
-  const newEntry = { id, name };
-  entries.push(newEntry);
-  res.status(201).json(newEntry);
-});
-
-app.get("/api/entries", (req, res) => {
-  res.json(entries);
-});
-
-app.get("/api/check-team", (req, res) => {
-  const { name } = req.query;
-  if (!name) {
-    return res.status(400).json({ error: "Team name is required" });
-  }
-  const exists = entries.some(entry => entry.name.toLowerCase() === name.toLowerCase());
-  res.json({ exists });
-});
-
-const PORT = process.env.PORT || 3000;
+// Start the server
+const PORT = process.env.PORT || 4002;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
+export default app;

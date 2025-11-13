@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function Dashboard() {
+  const router = useRouter()
   const [teamId, setTeamId] = useState('')
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,13 +18,13 @@ export default function Dashboard() {
 
     setLoading(true)
     setError('')
-    setMessage('')
 
     try {
-      // TODO: Implement team lookup API call
-      setMessage('Team data retrieved successfully')
-    } catch (err: any) {
-      setError(err.error || 'Failed to retrieve team data')
+      // Navigate to team-specific dashboard
+      router.push(`/dashboard/${teamId.trim()}`)
+    } catch (err: unknown) {
+      const error = err as { error: string }
+      setError(error.error || 'Failed to access team dashboard')
     } finally {
       setLoading(false)
     }
@@ -64,12 +65,6 @@ export default function Dashboard() {
           {loading ? 'ACCESSING...' : 'ACCESS TEAM DATA'}
         </button>
       </form>
-
-      {message && (
-        <div className="cyber-card text-green-400">
-          <div className="text-sm">✓ {message}</div>
-        </div>
-      )}
 
       {error && (
         <div className="cyber-card text-red-400 border-red-500/50">

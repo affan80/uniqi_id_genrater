@@ -7,6 +7,90 @@ const prisma = new PrismaClient();
 const router = express.Router();
 
 /**
+ * @route GET /api/team/:teamId
+ * @desc Get team data including captured flags
+ */
+router.get('/team/:teamId', async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    // ✅ 1. Fetch the team
+    const team = await Team.findById(teamId);
+    if (!team)
+      return res.status(404).json({ error: 'Team not found' });
+
+    // ✅ 2. Get captured flags (all levels <= currentLevel)
+    const capturedFlags = [];
+    for (let level = 1; level <= team.currentLevel; level++) {
+      const qr = await prisma.qRCode.findFirst({
+        where: {
+          cohortId: team.cohortId,
+          level: level,
+        },
+      });
+      if (qr) {
+        capturedFlags.push({
+          level: qr.level,
+          flag: qr.flag,
+          capturedAt: new Date().toISOString(), // In real app, you'd store capture timestamps
+        });
+      }
+    }
+
+    // ✅ 3. Respond
+    res.json({
+      id: team.id,
+      name: team.name,
+      currentLevel: team.currentLevel,
+      cohort: team.cohort,
+      capturedFlags: capturedFlags,
+    });
+
+  } catch (err) {
+    console.error('❌ Error in /team/:teamId:', err);
+    res.status(500).json({
+      error: 'Server error',
+      details: err.message,
+    });
+  }
+});
+
+/**
+ * @route GET /api/cohort/:cohortId/teams
+ * @desc Get all teams in a cohort with their current levels
+ */
+router.get('/cohort/:cohortId/teams', async (req, res) => {
+  try {
+    const { cohortId } = req.params;
+    const cohort = parseInt(cohortId);
+
+    // ✅ 1. Fetch all teams in the cohort
+    const teams = await prisma.team.findMany({
+      where: { cohortId: cohort },
+      include: { cohort: true },
+      orderBy: { currentLevel: 'desc' }, // Sort by level descending
+    });
+
+    // ✅ 2. Respond
+    res.json({
+      cohort: teams[0]?.cohort || null,
+      teams: teams.map(team => ({
+        id: team.id,
+        name: team.name,
+        currentLevel: team.currentLevel,
+      })),
+    });
+
+  } catch (err) {
+    console.error('❌ Error in /cohort/:cohortId/teams:', err);
+    res.status(500).json({
+      error: 'Server error',
+      details: err.message,
+    });
+  }
+});
+
+/**
  * @route POST /api/qr/scan/:cohort/:level
  * @body { teamId: string }
  * Description:

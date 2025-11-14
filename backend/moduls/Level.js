@@ -1,87 +1,69 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import mongoose from "mongoose";
+import { Team } from "../models/Team.js";
+import { QRCode } from "../models/QRCode.js";
+import { connectDB } from "../db.js";
+
+connectDB();
 
 export const Level = {
-  /**
-   * Check if a level is completed by the team.
-   */
   async isCompleted(teamId, level) {
-    try {
-      if (!teamId) throw new Error("Missing team ID");
-      if (typeof level !== "number" || isNaN(level)) throw new Error("Invalid level number");
+    if (!teamId) throw new Error("Missing team ID");
+    if (typeof level !== "number") throw new Error("Invalid level number");
 
-      const team = await prisma.team.findUnique({
-        where: { id: teamId.trim() },
-        select: { currentLevel: true },
-      });
+    const team = await Team.findOne({ id: teamId.trim() }).select(
+      "currentLevel"
+    );
+    if (!team) throw new Error("Team not found");
 
-      if (!team) throw new Error("Team not found");
-
-      return team.currentLevel >= level;
-    } catch (error) {
-      console.error("❌ Error checking if level is completed:", error);
-      throw new Error("Database error while checking level completion");
-    }
+    return team.currentLevel >= level;
   },
 
-  /**
-   * Mark a level as completed (must be next in sequence)
-   * and enforce QR scan limit.
-   */
   async markCompleted(teamId, level) {
-    try {
-      if (!teamId) throw new Error("Missing team ID");
-      if (typeof level !== "number" || isNaN(level)) throw new Error("Invalid level number");
+    if (!teamId) throw new Error("Missing team ID");
+    if (typeof level !== "number") throw new Error("Invalid level number");
 
-      const team = await prisma.team.findUnique({
-        where: { id: teamId.trim() },
-        select: { currentLevel: true, cohortId: true },
-      });
+    const team = await Team.findOne({ id: teamId.trim() });
+    if (!team) throw new Error("Team not found");
 
-      if (!team) throw new Error("Team not found");
+    const qr = await QRCode.findOne({ level, cohortId: team.cohortId });
+    if (!qr) throw new Error("QR Code not found for this level & cohort");
 
-      // 🔍 Find the corresponding QR code for this cohort + level
-      const qr = await prisma.qRCode.findFirst({
-        where: { level, cohortId: team.cohortId },
-      });
+    if (qr.currentTeams >= qr.limit) {
+      throw new Error("You're late! This QR is no longer active.");
+    }
 
-      if (!qr) throw new Error("QR code not found for this level and cohort");
+    if (level === team.currentLevel + 1) {
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      // 🧮 Check limit
-      if (qr.currentTeams >= qr.limit) {
-        throw new Error("You're late! This QR is no longer active.");
-      }
-
-      // ✅ Sequential rule: must complete levels in order
-      if (level === team.currentLevel + 1) {
-        // Update both Team and QRCode in a transaction
-        const [updatedTeam, updatedQr] = await prisma.$transaction([
-          prisma.team.update({
-            where: { id: teamId.trim() },
-            data: { currentLevel: level },
-          }),
-          prisma.qRCode.update({
-            where: { id: qr.id },
-            data: { currentTeams: { increment: 1 } },
-          }),
-        ]);
-
-        console.log(
-          `✅ Team ${teamId} completed Level ${level} (Cohort ${team.cohortId}). Total scans: ${updatedQr.currentTeams}/${updatedQr.limit}`
+      try {
+        const updatedTeam = await Team.findOneAndUpdate(
+          { id: teamId.trim() },
+          { currentLevel: level },
+          { new: true, session }
         );
 
+        await QRCode.findByIdAndUpdate(
+          qr._id,
+          { $inc: { currentTeams: 1 } },
+          { new: true, session }
+        );
+
+        await session.commitTransaction();
+        session.endSession();
+
         return updatedTeam;
-      } else if (level <= team.currentLevel) {
-        // Already done
-        return team;
-      } else {
-        throw new Error(`Cannot skip levels. Complete Level ${team.currentLevel + 1} first.`);
+      } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
+        throw err;
       }
-    } catch (error) {
-      console.error("❌ Error marking level as completed:", error.message);
-      throw new Error(error.message || "Database error while marking level as completed");
     }
+
+    if (level <= team.currentLevel) return team;
+
+    throw new Error(
+      `Cannot skip levels. Complete Level ${team.currentLevel + 1} first.`
+    );
   },
 };
-
-export default Level;

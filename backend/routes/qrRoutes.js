@@ -1,9 +1,9 @@
 import express from "express";
-import { PrismaClient } from "@prisma/client";
-import { Team } from "../moduls/Team.js";
+import { Cohort } from "../models/Cohort.js";
+import { Team } from "../models/Team.js";
+import { QRCode } from "../models/QRCode.js";
 import { Level } from "../moduls/Level.js";
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
 /**
@@ -20,69 +20,68 @@ router.post("/scan/:cohort/:level", async (req, res) => {
     }
 
     const numericLevel = parseInt(level, 10);
-    const numericCohort = parseInt(cohort, 10);
+    const cohortNumber = cohort.trim();
 
-    if (Number.isNaN(numericLevel) || Number.isNaN(numericCohort)) {
-      return res.status(400).json({ error: "Invalid cohort or level" });
+    if (Number.isNaN(numericLevel)) {
+      return res.status(400).json({ error: "Invalid level" });
     }
 
-    // Find team
-    const team = await Team.findById(teamId);
+    // ---- Find Team ----
+    const team = await Team.findOne({ id: teamId.trim() }).lean();
     if (!team) return res.status(404).json({ error: "Team not found" });
 
+    // ---- Find Cohort Document ----
+    const cohortDoc = await Cohort.findOne({ name: `Cohort ${cohortNumber}` });
+    if (!cohortDoc)
+      return res.status(404).json({ error: "Cohort not found" });
+
     // Ensure team belongs to same cohort
-    if (team.cohortId !== numericCohort) {
-      return res
-        .status(403)
-        .json({ error: "This QR code does not belong to your cohort" });
+    if (String(team.cohortId) !== String(cohortDoc._id)) {
+      return res.status(403).json({ error: "This QR does not belong to your cohort" });
     }
 
-    // Find QR code
-    const qr = await prisma.qRCode.findFirst({
-      where: { level: numericLevel, cohortId: numericCohort },
+    // ---- Find QR entry ----
+    const qr = await QRCode.findOne({
+      level: numericLevel,
+      cohortId: cohortDoc._id,
     });
 
     if (!qr) {
-      return res
-        .status(404)
-        .json({ error: "Invalid QR or level not registered" });
+      return res.status(404).json({ error: "Invalid QR or level not registered" });
     }
 
-    // Check if limit reached
-
-    // Check if already completed
+    // ---- Check if level already completed ----
     const completed = await Level.isCompleted(team.id, numericLevel);
     if (completed) {
       return res.status(400).json({ error: "This level is already completed." });
     }
+
+    // ---- Check if limit reached ----
     if (qr.currentTeams >= qr.limit) {
-      return res
-        .status(400)
-        .json({ error: "You're late! This QR is no longer active." });
+      return res.status(400).json({
+        error: "You're late! This QR is no longer active.",
+      });
     }
 
-    // Check sequential level completion
+    // ---- Sequential check ----
     if (numericLevel !== team.currentLevel + 1) {
       return res.status(400).json({
         error: `You must complete level ${team.currentLevel + 1} next.`,
       });
     }
 
-    // ✅ Mark team level as completed (update currentLevel)
+    // ---- Mark completed ----
     const updatedTeam = await Level.markCompleted(team.id, numericLevel);
 
-    // 🟢 Send success response FIRST
     res.json({
-      message: `🎉 Level ${numericLevel} completed successfully for Cohort ${numericCohort}!`,
+      message: `🎉 Level ${numericLevel} completed successfully for Cohort ${cohortNumber}!`,
       flag: qr.flag,
       team: {
         id: updatedTeam.id,
         currentLevel: updatedTeam.currentLevel,
       },
-      qr
+      qr,
     });
-
-    // 🚀 THEN update currentTeams asynchronously (non-blocking)
   } catch (err) {
     console.error("❌ Scan route error:", err);
     res.status(500).json({

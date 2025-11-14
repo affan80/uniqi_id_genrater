@@ -1,34 +1,37 @@
 // backend/routes/adminRoutes.js
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import { Cohort } from "../models/Cohort.js";
+import { Team } from "../models/Team.js";
+import { QRCode } from "../models/QRCode.js";
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
 /**
- * 🧠 GET all cohorts with their teams and progress
+ * 🧠 GET all cohorts with their teams and QR progress
  */
 router.get("/cohorts", async (req, res) => {
   try {
-    const cohorts = await prisma.cohort.findMany({
-      include: {
-        teams: {
-          select: {
-            id: true,
-            name: true,
-            currentLevel: true,
-          },
-        },
-        qrcodes: {
-          select: {
-            level: true,
-            flag: true,
-            limit: true,
-            currentTeams: true,
-          },
-        },
-      },
-    });
+    const cohorts = await Cohort.find()
+      .lean()
+      .then(async (cohortDocs) => {
+        return Promise.all(
+          cohortDocs.map(async (c) => {
+            const teams = await Team.find({ cohortId: c._id })
+              .select("id name currentLevel")
+              .lean();
+
+            const qrcodes = await QRCode.find({ cohortId: c._id })
+              .select("level flag limit currentTeams")
+              .lean();
+
+            return {
+              ...c,
+              teams,
+              qrcodes,
+            };
+          })
+        );
+      });
 
     res.json(cohorts);
   } catch (error) {
@@ -38,22 +41,23 @@ router.get("/cohorts", async (req, res) => {
 });
 
 /**
- * 🧠 GET specific cohort details
+ * 🧠 GET specific cohort by ID
  */
 router.get("/cohorts/:id", async (req, res) => {
   try {
-    const cohortId = parseInt(req.params.id);
-    const cohort = await prisma.cohort.findUnique({
-      where: { id: cohortId },
-      include: {
-        teams: true,
-        qrcodes: true,
-      },
-    });
+    const cohortId = req.params.id;
 
+    const cohort = await Cohort.findById(cohortId).lean();
     if (!cohort) return res.status(404).json({ error: "Cohort not found" });
 
-    res.json(cohort);
+    const teams = await Team.find({ cohortId }).lean();
+    const qrcodes = await QRCode.find({ cohortId }).lean();
+
+    res.json({
+      ...cohort,
+      teams,
+      qrcodes,
+    });
   } catch (error) {
     console.error("❌ Error fetching cohort:", error.message);
     res.status(500).json({ error: "Failed to fetch cohort" });
